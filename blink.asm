@@ -1,5 +1,5 @@
 ;********************************************************************
-;* LED flasher: LED will flash with a X on/off ratio at PD6
+;* LED blinker: LED will blink with a X on/off ratio at PD6
 ;*
 ;* NOTE: delay depends in the value of X, 1 is fast, 255 is slow
 ;*
@@ -80,10 +80,10 @@ RESET:
 
 	.equ  X, 5 	;enter delaytime X
 
-flash:	sbi   PORTB, led	;LED on
+blink:	sbi   PORTB, led	;LED on
 	ldi   temp, X		;X sec delay
 	rcall longDelay
 	cbi   PORTB, led	;LED off
 	ldi   temp, X		;X sec delay
 	rcall longDelay
-	rjmp  flash		;another run
+	rjmp  blink		;another run
