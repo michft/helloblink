@@ -19,11 +19,15 @@
 ;* copyright (CC BY-NC 3.0)
 ;* http://creativecommons.org/licenses/by-nc/3.0/
 ;*
-;* Version           :?
-;* Date		     :
-;* Author	     :Michael Tomkins
-;* Target MCU        :ATTINY13
+;* Version           : 0.1
+;* Date		     : 20120523
+;* Author	     : Michael Tomkins
+;* Target MCU        : ATTINY13
 ;********************************************************************
+
+
+; You can get the tn13def.inc from http://www.attiny.com/software/AVR000.zip
+; or http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
 
 .include "tn13def.inc"
 
