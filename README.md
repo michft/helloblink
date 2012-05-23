@@ -1,4 +1,4 @@
 helloblink
 ==========
 
-ihex blink for attiny13
+ihex hello world in blink for attiny13
