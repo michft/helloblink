@@ -5,11 +5,11 @@ This is just a test rig to check I can actually read ADXL registers before doing
 
 This gets the value of DATAx0 and uses this to turn on and off PORTB 0-2.
 
- Atmel ATTiny13A used.
- fuse bits low 0x7A
- fuse bits high 0xFF
- ADXL345 referenced as A
- ATTiny13A referenced as T
+- Atmel ATTiny13A used.
+- fuse bits low 0x7A
+- fuse bits high 0xFF
+- ADXL345 referenced as A
+- ATTiny13A referenced as T
 
 - VccA, VccT(8), CS, SDO  to 3.3volts.
 - GNDA, GNDT(4) to ground.
@@ -19,7 +19,7 @@ This gets the value of DATAx0 and uses this to turn on and off PORTB 0-2.
 - LED's PORTB 0-2 T(5-7) to GND
 
 Gotcha's (May be different for your ADXL345 PCB)
-------------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++++++++
 
 - SDO high or low changes read and write addresses.
 - CS high or low changes SPI or I2C mode.
