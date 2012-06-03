@@ -5,19 +5,19 @@ This is just a test rig to check I can actually read ADXL registers before doing
 
 This gets the value of DATAx0 and uses this to turn on and off PORTB 0-2.
 
-  Atmel ATTiny13A used.
-  fuse bits low 0x7A
-  fuse bits high 0xFF
-  ADXL345 referenced as A
-  ATTiny13A referenced as T
+-  Atmel ATTiny13A used.
+-  fuse bits low 0x7A
+-  fuse bits high 0xFF
+-  ADXL345 referenced as A
+-  ATTiny13A referenced as T
 
 
-  VccA, VccT(8), CS, SDO  to 3.3volts.
-  GNDA, GNDT(4) to ground.
-  SDA to T(2) (PORTB3)
-  SCL to T(3) (PORTB4)
-  SCA, SCL through 5k resistors to Vcc (no pullups on PCB)
-  LED's PORTB 0-2 T(5-7) to GND
+-  VccA, VccT(8), CS, SDO  to 3.3volts.
+-  GNDA, GNDT(4) to ground.
+-  SDA to T(2) (PORTB3)
+-  SCL to T(3) (PORTB4)
+-  SCA, SCL through 5k resistors to Vcc (no pullups on PCB)
+-  LED's PORTB 0-2 T(5-7) to GND
 
 Gotcha's (May be different for your ADXL345 PCB)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -39,10 +39,10 @@ Based on code from
 
 Referenced code from
 
-  http://mil.ufl.edu/5666/papers/IMDL_Report_Summer_03/koessick_max/Assembly%20Files/TWI/avr300_asm.htm
-  http://www.jrobot.net/Download/AVRcam_tiny12.asm
-  http://homepage.hispeed.ch/peterfleury/avr-software.html
-  http://www.attiny.com/software/AVR000.zip
-  http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
+-  http://mil.ufl.edu/5666/papers/IMDL_Report_Summer_03/koessick_max/Assembly%20Files/TWI/avr300_asm.htm
+-  http://www.jrobot.net/Download/AVRcam_tiny12.asm
+-  http://homepage.hispeed.ch/peterfleury/avr-software.html
+-  http://www.attiny.com/software/AVR000.zip
+-  http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
 
 Michael Tomkins
