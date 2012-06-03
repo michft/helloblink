@@ -44,4 +44,4 @@ Referenced code from
 -  http://www.attiny.com/software/AVR000.zip
 -  http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
 
-Michael Tomkins
+Michael
