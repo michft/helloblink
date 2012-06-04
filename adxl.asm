@@ -21,22 +21,23 @@
 ; i2c library from
 ; http://www.cs.washington.edu/education/courses/cse466/00au/Projects/LakeMan/adv/datasheets/i2c_ex.asm
 
-.include "i2c_ex.S"
+;.include "i2c_ex.S"
+.include "libi2c.S"	; My syntax fixed version
 
-Referenced code from
+; Referenced code from
 
 ; http://www.nickdademo.com/articles/avr/how-to-peter-fleurys-i2c-driver-and-the-avr-xmega
 ; http://www.jrobot.net/Download/AVRcam_tiny12.asm
 
-Other Links
+; Other Links
 
 ; http://mil.ufl.edu/5666/papers/IMDL_Report_Summer_03/koessick_max/Assembly%20Files/TWI/avr300_asm.htm
 ; http://homepage.hispeed.ch/peterfleury/avr-software.html
 ; http://www.attiny.com/software/AVR000.zip
 ; http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
 
-.equ    SCLP    , 4                     ; SCL Pin number (port D)
-.equ    SDAP    , 3                     ; SDA Pin number (port D)
+.equ    SCLP    , 4                     ; SCL Pin number (port B)
+.equ    SDAP    , 3                     ; SDA Pin number (port B)
 
 .equ    b_dir   , 0                     ; transfer direction bit in r18
 
@@ -52,82 +53,197 @@ Other Links
 ;.set   i2cstat , r19                   ; I2C bus status register
 
 
+
+
+
 	rjmp	RESET		;reset handle
 
-
+;kull if needed for space.
 ;* Long delay
+; http://arduino.cc blink delay code.
 
-;* Register variables
-
-	.equ  T1, 0x01
-	.equ  T2, 0x02
-	.equ  temp, 0x19
-
-;* Code
-longDelay:
-	clr   T1		;T1 used as delay 2nd count
-	clr   T2		;T2 used as delay 3d count
-delay_1:
-	dec   T2
-	brne  delay_1
-	dec   T1
-	brne  delay_1
-	dec   temp		; temp must be preset as
-	brne  delay_1		; delay master count
+long_delay:
+; =============================
+        ldi   r17, 0xFF
+        ldi   r18, 0xFF
+wg_delay:
+	dec   r17
+	brne  wg_delay
+        ldi   r17, 0xFF
+	dec   r18
+	brne  wg_delay
+        ldi   r18, 0xFF
+	dec   r16		; r16 must be preset
+	brne  wg_delay		; delay master count
 	ret
+; =============================
 
 ;*************************************************************************
+; Modified code from
 ; http://www.nickdademo.com/articles/avr/how-to-peter-fleurys-i2c-driver-and-the-avr-xmega
-; delay half period
+;
 ; For I2C in normal mode (100kHz), use T/2 > 5us
 ; For I2C in fast mode (400kHz),   use T/2 > 1.3us
 ;*************************************************************************
 ;       .func main_delay
-my_i2c_delay:             ; 3 cycles
+my_i2c_delay:             ; 3 cycles,
 ; =============================
 ;    delay loop generator
 ;     3 cycles:
 ; -----------------------------
 ; delaying 41 cycles, 1 ldi, 3 cycles per loop, ret 4 cycles
           ldi  r16, 13  ; 1
-WGLOOP:  dec  r16       ; 1
-         brne WGLOOP    ; 1 false 2 true
+wg_loop:  dec  r16       ; 1
+         brne wg_loop    ; 1 false | 2 true
          nop
          ret             ; 4 cycles
 
-; =============================
 ;    ret                 ; 3 cycles
 ;        .endfunc        ; total 48 cyles = 5.0 microsec with 9.6 Mhz clock
-                        ; since 10 cycles = 5.0 microsec with 2 Mhz clock 
+                         ; since 10 cycles = 5.0 microsec with 2 Mhz clock
+; =============================
 
 
-RESET:
+;***************************************************************************
+;*
+;* PROGRAM
+;*      main - Test of I2C master implementation
+;*
+;* DESCRIPTION
+;*      Initializes I2C interface and shows an example of using it.
+;*
+;***************************************************************************
 
-;* Main program
+reset:
+        ldi     temp, 0x38
+        rcall   longDelay
 
-;* Register variables
+        sbi DDRB, 0
+        sbi PORTB, 0
+        sbi DDRB, 2
+        sbi PORTB, 2
 
-	.equ  X, 5 	;enter delaytime X
-
-main:	sbi   PORTB, led	;LED on
-	cbi   PORTB, led1	;LED on
-	sbi   PORTB, led2	;LED on
-	ldi   temp, X		;X sec delay
-	rcall longDelay
-	cbi   PORTB, led	;LED off
-	sbi   PORTB, led1	;LED off
-	cbi   PORTB, led2	;LED off
-	ldi   temp, X		;X sec delay
-	rcall longDelay
-	rjmp  blink		;another run
+        sbi     PORTB, 1
+        rcall   i2c_init                ; initialize I2C interface
+main:
 
 
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
 
+        rcall   i2c_start               ; Send start condition and address
+
+        ldi     r17, 0x2d               ; Write word address (0x0
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        ldi     r17, 8          ; Set write data to 00001000
+        rcall   i2c_do_transfer         ; Execute transfer
+
+
+        rcall   i2c_stop
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+        rcall   i2c_start
+
+
+        ldi     r17, 0x32               ; Write word address, interupt reg
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        rcall   i2c_stop
+
+        ldi     r18, 0x3b       ; Set device address and read
+        ldi     r20, i2crd
+        rcall   i2c_rep_start           ; Send repeated start condition and address
+
+        sec                             ; Set no acknowledge (read is followed by a stop condition)
+        rcall   i2c_do_transfer         ; Execute transfer (read)
+
+        rcall   i2c_stop                ; Send stop condition - releases bus
+
+        cbi     PORTB, 0
+        cbi     PORTB, 1
+        cbi     PORTB, 2
+
+        sbrc    r17, 7
+        sbi     PORTB, 2
+
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+
+        rcall   i2c_start               ; Send start condition and address
+
+        ldi     r17, 0x2d               ; Write word address (0x0
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        ldi     r17, 8          ; Set write data to 00001000
+        rcall   i2c_do_transfer         ; Execute transfer
+
+
+        rcall   i2c_stop
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+        rcall   i2c_start
+
+
+        ldi     r17, 0x34               ; Write word address, interupt reg
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        rcall   i2c_stop
+
+        ldi     r18, 0x3b       ; Set device address and read
+        ldi     r20, i2crd
+        rcall   i2c_rep_start           ; Send repeated start condition and address
+
+        sec                             ; Set no acknowledge (read is followed by a stop condition)
+        rcall   i2c_do_transfer         ; Execute transfer (read)
+
+        rcall   i2c_stop                ; Send stop condition - releases bus
+
+        sbrc    r17, 7
+        sbi     PORTB, 1
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+
+        rcall   i2c_start               ; Send start condition and address
+
+        ldi     r17, 0x2d               ; Write word address (0x0
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        ldi     r17, 8          ; Set write data to 00001000
+        rcall   i2c_do_transfer         ; Execute transfer
+
+
+        rcall   i2c_stop
+        ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+        rcall   i2c_start
+
+
+        ldi     r17, 0x36               ; Write word address, interupt reg
+        rcall   i2c_do_transfer         ; Execute transfer
+
+        rcall   i2c_stop
+
+        ldi     r18, 0x3b       ; Set device address and read
+        ldi     r20, i2crd
+        rcall   i2c_rep_start           ; Send repeated start condition and address
+
+        sec                             ; Set no acknowledge (read is followed by a stop condition)
+        rcall   i2c_do_transfer         ; Execute transfer (read)
+
+        rcall   i2c_stop                ; Send stop condition - releases bus
+
+        sbrc    r17, 7
+        sbi     PORTB, 0
+        ldi     r16, 0x05
+;        rcall   longDelay
+
+        rjmp    main                    ; Loop forever
+
+;**** End of File ****
 
 ; get adxl values
 
 ; process values
 
 ; flip pins
-
-
