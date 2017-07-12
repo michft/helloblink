@@ -3,10 +3,6 @@
 ;
 ; LED blinking through ADXL345 accelerometer input.
 ;
-;
-; copyright (CC BY-NC 3.0)
-; http://creativecommons.org/licenses/by-nc/3.0/
-;
 ; Version           : 0.1
 ; Date		    : 20120603
 ; Author	    : Michael Tomkins
