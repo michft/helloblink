@@ -1,9 +1,7 @@
 I2C ADXL345 accelerometer blink.
 ================================
 
-EDIT: Abandoned, servo interupt method breaks deterministic i2c loops.
-
-This is just a test rig to check I can actually read ADXL registers before doing more indepth code.
+This is just a test rig to check I can actually read ADXL registers before doing more indepth code.  
 
 This gets the value of DATAx0 and uses this to turn on and off PORTB 0-2.
 
@@ -46,5 +44,4 @@ Referenced code from
 -  http://www.attiny.com/software/AVR000.zip
 -  http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
 
-Michael 20120603
-
+Michael
