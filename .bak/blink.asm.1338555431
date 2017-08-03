@@ -1,0 +1,134 @@
+;********************************************************************
+;* LED blinker: LED will blink with a X on/off ratio at PD6
+;*
+;* NOTE: delay depends in the value of X, 1 is fast, 255 is slow
+;*
+;* No copyright ©1998 RESÆ * FREEWARE *
+;*
+;* NOTE: Connect a low current LED with a 1k resistor in serie from
+;*	 Vdd to pin 11 of the MCU. (Or a normal LED with a 330ohm)
+;*
+;* RESÆ can be reached by email: at90s2313@europe.com
+;* or visit the website: http://www.attiny.com
+;*
+;* Original Version  :1.0
+;* Date		     :12/26/98
+;* Author	     :Rob's ElectroSoft
+;* Target MCU        :AT90S1200-12PI@4MHz
+;*
+;* copyright (CC BY-NC 3.0)
+;* http://creativecommons.org/licenses/by-nc/3.0/
+;*
+;* Version           : 0.1
+;* Date		     : 20120523
+;* Author	     : Michael Tomkins
+;* Target MCU        : ATTINY13
+;********************************************************************
+
+
+; You can get the tn13def.inc from http://www.attiny.com/software/AVR000.zip
+; or http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
+
+.include "tn13def.inc"
+
+	rjmp	RESET		;reset handle
+
+
+;* Long delay
+
+;* Register variables
+
+	.equ  T1, 0x01
+	.equ  T2, 0x02
+	.equ  temp, 0x19
+
+;* Code
+longDelay:
+	clr   T1		;T1 used as delay 2nd count
+	clr   T2		;T2 used as delay 3d count
+delay_1:
+	dec   T2
+	brne  delay_1
+	dec   T1
+	brne  delay_1
+	dec   temp		;temp must be preset as
+	brne  delay_1		; delay master count
+	ret
+
+
+;* Resets the data direction register D
+
+;* Defines
+
+	.equ  led, 0		;LED at PB0
+	.equ  led1, 3
+	.equ  led2, 4
+
+;* Code
+
+RESET:
+
+;* Main program
+
+;* This part will let the LED go on and off by X
+
+;* Register variables
+
+	.equ  X, 5 	;enter delaytime X
+
+blink:	sbi   PORTB, led	;LED on
+	cbi   PORTB, led1	;LED on
+	sbi   PORTB, led2	;LED on
+	ldi   temp, X		;X sec delay
+	rcall longDelay
+	cbi   PORTB, led	;LED off
+	sbi   PORTB, led1	;LED off
+	cbi   PORTB, led2	;LED off
+	ldi   temp, X		;X sec delay
+	rcall longDelay
+        ldi     r17, 0xe5
+        mov     r0, r17
+	ldi   temp, X		;X sec delay
+        cbi     PORTB, 1
+        cbi     PORTB, 2
+	rcall longDelay
+	ldi   temp, X		;X sec delay
+        ldi     r16, 0xFF
+        ldi     r31, 7
+        eor     r23, r31
+;       ldi     PORTB, r23
+	rcall longDelay
+        ldi     r16, 0xFF
+	ldi   temp, X		;X sec delay
+        sbi     PORTB, 0
+        cbi     PORTB, 1
+        sbi     PORTB, 2
+	rcall longDelay
+        ldi     r16, 0xFF
+	ldi   temp, X		;X sec delay
+        ldi     r31, 63
+        eor     r17, r31
+        rol     r17
+        rol     r17
+        rol     r17
+        eor     r23, r17
+	rcall longDelay
+        ldi     r16, 0xFF
+	ldi   temp, X		;X sec delay
+        mov     r17 , r0
+        ldi     r31, 199
+        eor     r17, r31
+        ror     r17
+        ror     r17
+        ror     r17
+        eor     r23, r17
+	rcall longDelay
+        ldi     r16, 0xFF
+	ldi   temp, X		;X sec delay
+        mov     r17 , r0
+        ldi     r31, 248
+        eor     r17, r31
+        eor     r23, r17
+	rcall longDelay
+
+	rjmp  blink		;another run

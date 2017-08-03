@@ -1,0 +1,66 @@
+;********************************************************************
+;* LED blinker: LED will blink with a X on/off ratio at PD6
+;*
+;* NOTE: delay depends in the value of X, 1 is fast, 255 is slow
+;*
+;* No copyright ©1998 RES * FREEWARE *
+;*
+;* NOTE: Connect a low current LED with a 1k resistor in serie from
+;*	 Vdd to pin 11 of the MCU. (Or a normal LED with a 330ohm)
+;*
+;* RES can be reached by email: at90s2313@europe.com
+;* or visit the website: http://www.attiny.com
+;*
+;* Original Version  :1.0
+;* Date		     :12/26/98
+;* Author	     :Rob's ElectroSoft
+;* Target MCU        :AT90S1200-12PI@4MHz
+;*
+;* copyright (CC BY-NC 3.0)
+;* http://creativecommons.org/licenses/by-nc/3.0/
+;*
+;* Version           : 0.1
+;* Date		     : 20120523
+;* Author	     : Michael Tomkins
+;* Target MCU        : ATTINY13
+;********************************************************************
+
+
+; You can get the tn13def.inc from http://www.attiny.com/software/AVR000.zip
+; or http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
+
+.include "tn13def.inc"
+
+
+
+.org 0x00
+reset:
+rjmp main ; Reset Handler, setup.
+rjmp defaultInt; rjmp EXT_INT0 ; IRQ0 Handler
+rjmp defaultInt; rjmp PCINT0 ; PCINT0 Handler
+rjmp timer ; rjmp TIM0_OVF ; Timer0 Overflow Handler
+rjmp defaultInt; rjmp EE_RDY ; EEPROM Ready Handler
+rjmp defaultInt; rjmp ANA_COMP ; Analog Comparator Handler
+rjmp defaultInt; rjmp TIM0_COMPA ; Timer0 CompareA Handler
+rjmp defaultInt; rjmp TIM0_COMPB ; Timer0 CompareB Handler
+rjmp defaultInt; rjmp WATCHDOG ; Watchdog Interrupt Handler
+rjmp defaultInt; rjmp ADC ; ADC Conversion Handler
+
+
+defaultInt:
+	reti
+
+
+timer:
+	reti
+
+
+
+
+main:
+;	ldi r16, low(RAMEND); Main program start
+	out SPL, r16 ; Set Stack Pointer to top of RAM
+	sei ; Enable interrupts
+
+
+;<instr> xxx

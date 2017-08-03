@@ -1,0 +1,147 @@
+;
+; ears.asm
+;
+; Ajust servo position based on adxl345 x axis.
+;
+;
+; copyright (CC BY-NC 3.0)
+; http://creativecommons.org/licenses/by-nc/3.0/
+;
+; Version           : 0.1
+; Date		    : 20120623
+; Author	    : Michael Tomkins
+; Target MCU        : ATTiny13A
+;
+
+
+; You can get the tn13def.inc from http://www.attiny.com/software/AVR000.zip
+; or http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
+
+.include "tn13def.inc"
+
+
+; i2c library from
+; http://www.cs.washington.edu/education/courses/cse466/00au/Projects/LakeMan/adv/datasheets/i2c_ex.asm
+;.include "i2c_ex.S"
+
+.include "libi2c.S"			; My syntax fixed version, changed i2c delay length (48 cycles)
+
+
+	rjmp	reset		;reset handle
+
+
+
+; high pulse is ~0.001 or 1000 times a second
+; low pulse is ~0.02 or 50 times a second
+
+pulse:
+;* Code
+	sbi   PORTB, 0  ; 5 / 1
+;	sbi   PORTB, 2  ; 5 / 1
+        mov   r1, r16   ; 1, 100-1 times to get pulse length.
+high_rst:
+
+        mov   r0, r19   ; 1
+;       clr   r0  ; 1
+high_loop: 		; 3n(32*3+3)
+	dec   r0
+	brne  high_loop	; 2t 1f
+	dec   r1	; 1
+	brne  high_rst ; 2t 1f
+	cbi   PORTB, 0  ; 1
+;	cbi   PORTB, 2  ; 1
+;	dec   r17	; 1
+;	brne  pulse	; 2t 1f
+;	dec   r18	; 1
+;	brne  pulse	; 2t 1f
+
+
+       mov   r1, r17   ; 1
+;       clr   r1  ; 1
+;low_rst:
+;       mov   r0, r16   ; 1
+;        clr   r0  ; 1
+low_loop:		; 3n(256*3+3)
+	dec   r0
+	brne  low_loop	; 2t 1f
+	dec   r1       ; 1
+;	cbi   PORTB, 0
+;	sbi   PORTB, 1
+	brne  low_loop	; 2t 1f
+       ; mov   r2, r20   ; 1
+;	dec   r17	; 1
+;	brne  pulse	; 2t 1f
+	dec   r18
+	brne  pulse
+	ret
+
+reset:
+
+;	.equ	r19, 	0x20 ;
+	cli
+
+main:
+	ldi	r18, 0x3a		; Set device address and write
+	ldi	r20, i2cwr
+
+	rcall	i2c_start		; Send start condition and address
+
+	ldi	r17, 0x2d		; Write word address (0x0
+	rcall	i2c_do_transfer		; Execute transfer
+
+	ldi	r17, 8			; Set write data to 00001000
+	rcall	i2c_do_transfer		; Execute transfer
+
+
+        rcall   i2c_stop
+
+	ldi     r18, 0x3a       	; Set device address and write
+        ldi     r20, i2cwr
+
+	rcall   i2c_start
+
+	ldi	r17, 0x32		; Write word address
+	rcall	i2c_do_transfer		; Execute transfer
+
+        rcall   i2c_stop
+
+	ldi	r18, 0x3b		; Set device address and read
+	ldi	r20, i2crd
+	rcall	i2c_rep_start		; Send repeated start condition and address
+
+	sec				; Set no acknowledge (read is followed by a stop condition
+
+	rcall	i2c_do_transfer		; Execute transfer (read)
+	rcall	i2c_stop		; Send stop condition - releases bus
+
+
+	ldi   r19, 0x20		; This way we have nice up times.
+;	cbi   PORTB, 3
+;	sbi   PORTB, 4
+	ldi   r16, 0x64		; 1 ms pulse, 9600 cycles (or 100x :)
+;	ldi   r17, 0xe6		; 19 ms low, 182400 cycles
+	ldi   r18, 0x33		; repeat 50 * 20 ms = 1s, 50 * 192000 = 9.6Mcycles
+	rcall pulse
+;	cbi   PORTB, 4
+;	sbi   PORTB, 3
+;	ldi   r16, 0x84		; 1 ms pulse, 9600 cycles (or 100x :)
+;	ldi   r17, 0xe6		; 19 ms low, 182400 cycles
+;	ldi   r18, 0x33		; repeat 50 * 20 ms = 1s, 50 * 192000 = 9.6Mcycles
+	rcall pulse
+;	ldi   r16, 0xfa		; 1 ms pulse, 9600 cycles (or 100x :)
+;	ldi   r17, 0xe6		; 19 ms low, 182400 cycles
+;	ldi   r18, 0x33		; repeat 50 * 20 ms = 1s, 50 * 192000 = 9.6Mcycles
+	rcall pulse
+;	ldi   r16, 0x40		; 1 ms pulse, 9600 cycles (or 100x :)
+;	ldi   r17, 0xe6		; 19 ms low, 182400 cycles
+;	ldi   r18, 0x33		; repeat 50 * 20 ms = 1s, 50 * 192000 = 9.6Mcycles
+	rcall pulse
+	rjmp  main		;another run
+
+
+;pulse
+	ldi   r16, 0xb5		; 1 ms pulse, 9600 cycles (or 100x :)
+	ldi   r17, 0xe6		; 19 ms low, 182400 cycles
+	ldi   r18, 0x04		; repeat 50 * 20 ms = 1s, 50 * 192000 = 9.6Mcycles
+	ldi   r19, 0x1f		; This way we have nice up times.
+;low

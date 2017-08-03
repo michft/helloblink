@@ -1,0 +1,544 @@
+;**** A P P L I C A T I O N   N O T E   A V R 3 0 0 ************************
+;*
+;* Title		: I2C (Single) Master Implementation
+;* Version		: 1.0 (BETA)
+;* Last updated		: 97.08.27
+;* Target		: AT90Sxxxx (any AVR device)
+;*
+;* Support email	: avr@atmel.com
+;*
+;* DESCRIPTION
+;* 	Basic routines for communicating with I2C slave devices. This
+;*	"single" master implementation is limited to one bus master on the
+;*	I2C bus. Most applications do not need the multimaster ability
+;*	the I2C bus provides. A single master implementation uses, by far,
+;*	less resources and is less XTAL frequency dependent.
+;*
+;*	Some features :
+;*	* All interrupts are free, and can be used for other activities.
+;*	* Supports normal and fast mode.
+;*	* Supports both 7-bit and 10-bit addressing.
+;*	* Supports the entire AVR microcontroller family.
+;*
+;*	Main I2C functions :
+;*	'i2c_start' -		Issues a start condition and sends address
+;*				and transfer direction.
+;*	'i2c_rep_start' -	Issues a repeated start condition and sends
+;*				address and transfer direction.
+;*	'i2c_do_transfer' -	Sends or receives data depending on
+;*				direction given in address/dir byte.
+;*	'i2c_stop' -		Terminates the data transfer by issue a
+;*				stop condition.
+;*
+;* USAGE
+;*	Transfer formats is described in the AVR300 documentation.
+;*	(An example is shown in the 'main' code).
+;*
+;* NOTES
+;*	The I2C routines can be called either from non-interrupt or
+;*	interrupt routines, not both.
+;*
+;* STATISTICS
+;*	Code Size	: 81 words (maximum)
+;*	Register Usage	: 4 High, 0 Low
+;*	Interrupt Usage	: None
+;*	Other Usage	: Uses two I/O pins on port B
+;*	XTAL Range	: N/A
+;*
+;***************************************************************************
+
+;**** Includes ****
+
+.include "tn13def.inc"			; change if an other device is used
+
+;**** Global I2C Constants ****
+
+.equ	SCLP	, 4			; SCL Pin number (port D)
+.equ	SDAP	, 3			; SDA Pin number (port D)
+
+.equ	b_dir	, 0			; transfer direction bit in r18
+
+.equ	i2crd	, 1
+.equ	i2cwr	, 0
+
+;**** Global Register Variables ****
+
+; did find/paste because syntax eluded me. mich
+;.set	i2cdelay, r16			; Delay loop variable
+;.set	i2cdata	, r17			; I2C data transfer register
+;.set	i2cadr	, r18			; I2C address and direction register
+;.set	i2cstat	, r19			; I2C bus status register
+
+;**** Interrupt Vectors ****
+
+	rjmp	RESET			; Reset handle
+;	( rjmp	EXT_INT0 )		; ( IRQ0 handle )
+;	( rjmp	TIM0_OVF )		; ( Timer 0 overflow handle )
+;	( rjmp	ANA_COMP )		; ( Analog comparator handle )
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_hp_delay
+;*	i2c_qp_delay
+;*
+;* DESCRIPTION
+;*	hp - half i2c clock period delay (normal: 5.0us / fast: 1.3us)
+;*	qp - quarter i2c clock period delay (normal: 2.5us / fast: 0.6us)
+;*
+;*	SEE DOCUMENTATION !!!
+;*
+;* USAGE
+;*	no parameters
+;*
+;* RETURN
+;*	none
+;*
+;***************************************************************************
+
+;i2c_qp_delay:
+;i2c_hp_delay:;
+;	ldi	r16, 0x48
+;i2c_hp_delay_loop:
+;	dec	r16
+;	brne	i2c_hp_delay_loop
+;	ret
+;
+;i2c_qp_delay:
+;	ldi	r16, 0x01
+;i2c_qp_delay_loop:
+;	dec	r16
+;	brne	i2c_qp_delay_loop
+;	ret
+
+;*************************************************************************
+; http://www.nickdademo.com/articles/avr/how-to-peter-fleurys-i2c-driver-and-the-avr-xmega
+; delay half period
+; For I2C in normal mode (100kHz), use T/2 > 5us
+; For I2C in fast mode (400kHz),   use T/2 > 1.3us
+;*************************************************************************
+;        .stabs    "",100,0,0,i2c_delay_T2
+;        .stabs    "i2cmaster.S",100,0,0,i2c_delay_T2
+        .func main_delay
+i2c_qp_delay:
+i2c_qp_delay_loop:
+i2c_hp_delay:
+i2c_hp_delay_loop:
+i2c_delay_hp:             ; 3 cycles
+; =============================
+;    delay loop generator
+;     3 cycles:
+; -----------------------------
+; delaying 41 cycles, 1 ldi, 3 cycles per loop, ret 4 cycles
+          ldi  r16, 13	; 1
+WGLOOP:  dec  r16 	; 1
+         brne WGLOOP 	; 1 false 2 true
+	nop
+	ret 		; 4 cycles
+
+; =============================
+;    ret                 ; 3 cycles
+        .endfunc        ; total 48 cyles = 5.0 microsec with 9.6 Mhz clock
+                        ; since 10 cycles = 5.0 microsec with 2 Mhz clock
+
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_rep_start
+;*
+;* DESCRIPTION
+;*	Assert repeated start condition and sends slave address.
+;*
+;* USAGE
+;*	r18 - Contains the slave address and transfer direction.
+;*
+;* RETURN
+;*	Carry flag - Cleared if a slave responds to the address.
+;*
+;* NOTE
+;*	IMPORTANT! : This funtion must be directly followed by i2c_start.
+;*
+;***************************************************************************
+
+i2c_rep_start:
+	sbi	DDRB,SCLP		; force SCL low
+	cbi	DDRB,SDAP		; release SDA
+	rcall	i2c_hp_delay		; half period delay
+	cbi	DDRB,SCLP		; release SCL
+	rcall	i2c_qp_delay		; quarter period delay
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_start
+;*
+;* DESCRIPTION
+;*	Generates start condition and sends slave address.
+;*
+;* USAGE
+;*	r18 - Contains the slave address and transfer direction.
+;*
+;* RETURN
+;*	Carry flag - Cleared if a slave responds to the address.
+;*
+;* NOTE
+;*	IMPORTANT! : This funtion must be directly followed by i2c_write.
+;*
+;***************************************************************************
+
+i2c_start:
+	mov	r17,r18		; copy address to transmitt register
+	sbi	DDRB,SDAP		; force SDA low
+	rcall	i2c_hp_delay		; quarter period delay
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_write
+;*
+;* DESCRIPTION
+;*	Writes data (one byte) to the I2C bus. Also used for sending
+;*	the address.
+;*
+;* USAGE
+;*	r17 - Contains data to be transmitted.
+;*
+;* RETURN
+;*	Carry flag - Set if the slave respond transfer.
+;*
+;* NOTE
+;*	IMPORTANT! : This funtion must be directly followed by i2c_get_ack.
+;*
+;***************************************************************************
+
+i2c_write:
+	sec				; set carry flag
+	rol	r17			; shift in carry and out bit one
+	rjmp	i2c_write_first
+i2c_write_bit:
+	lsl	r17			; if transmit register empty
+i2c_write_first:
+	breq	i2c_get_ack		;	goto get acknowledge
+	sbi	DDRB,SCLP		; force SCL low
+
+	brcc	i2c_write_low		; if bit high
+	nop				;	(equalize number of cycles)
+	cbi	DDRB,SDAP		;	release SDA
+	rjmp	i2c_write_high
+i2c_write_low:				; else
+	sbi	DDRB,SDAP		;	force SDA low
+	rjmp	i2c_write_high		;	(equalize number of cycles)
+i2c_write_high:
+	rcall	i2c_hp_delay		; half period delay
+	cbi	DDRB,SCLP		; release SCL
+	rcall	i2c_hp_delay		; half period delay
+
+	rjmp	i2c_write_bit
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_get_ack
+;*
+;* DESCRIPTION
+;*	Get slave acknowledge response.
+;*
+;* USAGE
+;*	(used only by i2c_write in this version)
+;*
+;* RETURN
+;*	Carry flag - Cleared if a slave responds to a request.
+;*
+;***************************************************************************
+
+i2c_get_ack:
+	sbi	DDRB,SCLP		; force SCL low
+	cbi	DDRB,SDAP		; release SDA
+	rcall	i2c_hp_delay		; half period delay
+	cbi	DDRB,SCLP		; release SCL
+
+i2c_get_ack_wait:
+	sbis	PINB,SCLP		; wait SCL high
+					;(In case wait states are inserted)
+	rjmp	i2c_get_ack_wait
+
+	clc				; clear carry flag
+	sbic	PINB,SDAP		; if SDA is high
+	sec				;	set carry flag
+	rcall	i2c_hp_delay		; half period delay
+	ret
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_do_transfer
+;*
+;* DESCRIPTION
+;*	Executes a transfer on bus. This is only a combination of i2c_read
+;*	and i2c_write for convenience.
+;*
+;* USAGE
+;*	r18 - Must have the same direction as when i2c_start was called.
+;*	see i2c_read and i2c_write for more information.
+;*
+;* RETURN
+;*	(depends on type of transfer, read or write)
+;*
+;* NOTE
+;*	IMPORTANT! : This funtion must be directly followed by i2c_read.
+;*
+;***************************************************************************
+
+i2c_do_transfer:
+	sbrs	r20, b_dir		; if dir , write
+	rjmp	i2c_write		;	goto write data
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_read
+;*
+;* DESCRIPTION
+;*	Reads data (one byte) from the I2C bus.
+;*
+;* USAGE
+;*	Carry flag - 	If set no acknowledge is given to the slave
+;*			indicating last read operation before a STOP.
+;*			If cleared acknowledge is given to the slave
+;*			indicating more data.
+;*
+;* RETURN
+;*	r17 - Contains received data.
+;*
+;* NOTE
+;*	IMPORTANT! : This funtion must be directly followed by i2c_put_ack.
+;*
+;***************************************************************************
+
+i2c_read:
+	rol	r19			; store acknowledge
+					; (used by i2c_put_ack)
+	ldi	r17,0x01		; data , 0x01
+i2c_read_bit:				; do
+	sbi	DDRB,SCLP		; 	force SCL low
+	rcall	i2c_hp_delay		;	half period delay
+
+	cbi	DDRB,SCLP		;	release SCL
+	rcall	i2c_hp_delay		;	half period delay
+
+	clc				;	clear carry flag
+	sbic	PINB,SDAP		;	if SDA is high
+	sec				;		set carry flag
+
+	rol	r17			; 	store data bit
+	brcc	i2c_read_bit		; while receive register not full
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_put_ack
+;*
+;* DESCRIPTION
+;*	Put acknowledge.
+;*
+;* USAGE
+;*	(used only by i2c_read in this version)
+;*
+;* RETURN
+;*	none
+;*
+;***************************************************************************
+
+i2c_put_ack:
+	sbi	DDRB,SCLP		; force SCL low
+
+	ror	r19			; get status bit
+	brcc	i2c_put_ack_low		; if bit low goto assert low
+	cbi	DDRB,SDAP		;	release SDA
+	rjmp	i2c_put_ack_high
+i2c_put_ack_low:			; else
+	sbi	DDRB,SDAP		;	force SDA low
+i2c_put_ack_high:
+
+	rcall	i2c_hp_delay		; half period delay
+	cbi	DDRB,SCLP		; release SCL
+i2c_put_ack_wait:
+	sbis	PINB,SCLP		; wait SCL high
+	rjmp	i2c_put_ack_wait
+	rcall	i2c_hp_delay		; half period delay
+	ret
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_stop
+;*
+;* DESCRIPTION
+;*	Assert stop condition.
+;*
+;* USAGE
+;*	No parameters.
+;*
+;* RETURN
+;*	None.
+;*
+;***************************************************************************
+
+i2c_stop:
+	sbi	DDRB,SCLP		; force SCL low
+	sbi	DDRB,SDAP		; force SDA low
+	rcall	i2c_hp_delay		; half period delay
+	cbi	DDRB,SCLP		; release SCL
+	rcall	i2c_qp_delay		; quarter period delay
+	cbi	DDRB,SDAP		; release SDA
+	rcall	i2c_hp_delay		; half period delay
+	ret
+
+
+;***************************************************************************
+;*
+;* FUNCTION
+;*	i2c_init
+;*
+;* DESCRIPTION
+;*	Initialization of the I2C bus interface.
+;*
+;* USAGE
+;*	Call this function once to initialize the I2C bus. No parameters
+;*	are required.
+;*
+;* RETURN
+;*	None
+;*
+;* NOTE
+;*	PORTB and DDRB pins not used by the I2C bus interface will be
+;*	set to Hi-Z (!).
+;*
+;* COMMENT
+;*	This function can be combined with other PORTD initializations.
+;*
+;***************************************************************************
+
+i2c_init:
+	clr	r19			; clear I2C status register (used
+					; as a temporary register)
+	out	PORTB,r19		; set I2C pins to open colector
+	out	DDRB,r19
+	ret
+
+
+        .equ  T1, 0x01
+        .equ  T2, 0x02
+        .equ  temp, 0x19
+
+;* Code
+longDelay:
+        clr   T1                ;T1 used as delay 2nd count
+        clr   T2                ;T2 used as delay 3d count
+delay_1:
+        dec   T2
+        brne  delay_1
+        dec   T1
+        brne  delay_1
+        dec   temp              ;temp must be preset as
+        brne  delay_1           ; delay master count
+        ret
+
+
+;***************************************************************************
+;*
+;* PROGRAM
+;*	main - Test of I2C master implementation
+;*
+;* DESCRIPTION
+;*	Initializes I2C interface and shows an example of using it.
+;*
+;***************************************************************************
+
+RESET:
+        ldi     temp, 0x38
+	rcall 	longDelay
+
+        sbi DDRB, 0
+        sbi PORTB, 0
+        sbi DDRB, 2
+        sbi PORTB, 2
+
+	sbi     PORTB, 1
+	rcall	i2c_init		; initialize I2C interface
+main:
+
+;**** Write data ,> Adr(00) , 0x55 ****
+
+;	ldi	r18,$A0+i2cwr	; Set device address and write
+;	rcall	i2c_start		; Send start condition and address
+
+;	ldi	r17,$00		; Write word address (0x00)
+;	rcall	i2c_do_transfer		; Execute transfer
+
+;	ldi	r17,$55		; Set write data to 01010101b
+;	rcall	i2c_do_transfer		; Execute transfer
+
+;	rcall	i2c_stop		; Send stop condition
+
+;**** Read data ,> r17 , Adr(00) ****
+
+	ldi	r18, 0x3a	; Set device address and write
+	ldi	r20, i2cwr
+
+	rcall	i2c_start		; Send start condition and address
+
+	ldi	r17, 0x2d		; Write word address (0x0
+	rcall	i2c_do_transfer		; Execute transfer
+
+	ldi	r17, 8		; Set write data to 00001000
+	rcall	i2c_do_transfer		; Execute transfer
+
+
+        rcall   i2c_stop
+	ldi     r18, 0x3a       ; Set device address and write
+        ldi     r20, i2cwr
+	rcall   i2c_start
+
+
+	ldi	r17, 0x32		; Write word address
+	rcall	i2c_do_transfer		; Execute transfer
+
+        rcall   i2c_stop
+
+	ldi	r18, 0x3b	; Set device address and read
+	ldi	r20, i2crd
+	rcall	i2c_rep_start		; Send repeated start condition and address
+
+	sec				; Set no acknowledge (read is followed by a stop condition)
+	rcall	i2c_do_transfer		; Execute transfer (read)
+
+	rcall	i2c_stop		; Send stop condition - releases bus
+
+	cbi	PORTB, 0
+	cbi	PORTB, 1
+	cbi	PORTB, 2
+	sbrc	r17, 7
+	sbi	PORTB, 2
+	sbrc	r17, 6
+	sbi	PORTB, 1
+	sbrc	r17, 5
+	sbi	PORTB, 0
+        ldi     temp, 0x02
+	rcall 	longDelay
+
+	rjmp	main			; Loop forewer
+
+;**** End of File ****
+
+

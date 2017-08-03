@@ -1,0 +1,178 @@
+;
+; LED blinker, turns on a attiny13 pin (PB1) on and off from adxl345 i2c input.
+;
+;
+; copyright (CC BY-NC 3.0)
+; http://creativecommons.org/licenses/by-nc/3.0/
+;
+; Version           : 0.1
+; Date		     : 20120523
+; Author	     : Michael Tomkins
+; Target MCU        : ATTINY13
+;
+
+
+; You can get the tn13def.inc from http://www.attiny.com/software/AVR000.zip
+; or http://www.atmel.com/products/microcontrollers/avr/tinyAVR.aspx
+
+.include "tn13def.inc"
+
+; i2c library from Peter Fleur
+; source http://homepage.hispeed.ch/peterfleury/i2cmaster.zip
+
+.include "i2cmaster.S"
+
+	rjmp	RESET		;reset handle
+
+
+;* Long delay
+
+;* Register variables
+
+	.equ  T1, 0x01
+	.equ  T2, 0x02
+	.equ  temp, 0x19
+
+;* Code
+longDelay:
+	clr   T1		;T1 used as delay 2nd count
+	clr   T2		;T2 used as delay 3d count
+delay_1:
+	dec   T2
+	brne  delay_1
+	dec   T1
+	brne  delay_1
+	dec   temp		;temp must be preset as
+	brne  delay_1		; delay master count
+	ret
+
+
+;* Resets the data direction register D
+
+;* Defines
+
+	.equ  led, 0		;LED at PB0
+	.equ  led1, 3		;LED at PB3
+	.equ  led2, 4		;LED at PB4
+
+;* Code
+
+RESET:
+
+;* Main program
+
+;* Register variables
+
+	.equ  X, 5 	;enter delaytime X
+
+blink:	sbi   PORTB, led	;LED on
+	cbi   PORTB, led1	;LED on
+	sbi   PORTB, led2	;LED on
+	ldi   temp, X		;X sec delay
+	rcall longDelay
+	cbi   PORTB, led	;LED off
+	sbi   PORTB, led1	;LED off
+	cbi   PORTB, led2	;LED off
+	ldi   temp, X		;X sec delay
+	rcall longDelay
+	rjmp  blink		;another run
+
+
+; setup
+
+
+
+
+; get adxl values
+
+; process values
+
+; flip pins
+
+
+;
+;// Include the Wire library so we can start using I2C.
+;#include <Wire.h>
+;// Include the Love Electronics ADXL345 library so we can use the accelerometer.
+;#include <ADXL345.h>
+;
+;// Declare a global instance of the accelerometer.
+;ADXL345 accel;
+;
+;// Set up a pin we are going to use to indicate our status using an LED.
+;int statusPin = 2; // I'm using digital pin 2.
+;
+;void setup()
+;{
+;  // Begin by setting up the Serial Port so we can output our results.
+;  Serial.begin(9600);
+;  // Start the I2C Wire library so we can use I2C to talk to the accelerometer.
+;  Wire.begin();
+;  
+;  // Ready an LED to indicate our status.
+;  pinMode(statusPin, OUTPUT);
+;  
+;  // Create an instance of the accelerometer on the default address (0x1D)
+;  accel = ADXL345();
+;  
+;  // Check that the accelerometer is infact connected.
+;  if(accel.EnsureConnected())
+;  {
+;    Serial.println("Connected to ADXL345.");
+;    digitalWrite(statusPin, HIGH); // If we are connected, light our status LED.
+;  }
+;  else 
+;  {
+;    Serial.println("Could not connect to ADXL345.");
+;    digitalWrite(statusPin, LOW); // If we are not connected, turn our LED off.
+;  }
+;  
+;  // Set the range of the accelerometer to a maximum of 2G.
+;  accel.SetRange(2, true);
+;  // Tell the accelerometer to start taking measurements.
+;  accel.EnableMeasurements();
+;}
+;
+;void loop()
+;{
+;  if(accel.IsConnected) // If we are connected to the accelerometer.
+;  {
+;    // Read the raw data from the accelerometer.
+;    AccelerometerRaw raw = accel.ReadRawAxis();
+;    //This data can be accessed like so:
+;    int xAxisRawData = raw.XAxis;
+;    
+;    // Read the *scaled* data from the accelerometer (this does it's own read from the accelerometer
+;    // so you don't have to ReadRawAxis before you use this method).
+;    // This useful method gives you the value in G thanks to the Love Electronics library.
+;    AccelerometerScaled scaled = accel.ReadScaledAxis();
+;    // This data can be accessed like so:
+;    float xAxisGs = scaled.XAxis;
+;    
+;    // We output our received data.
+;    Output(raw, scaled);
+;  }
+;  delay (500);
+;}
+;
+;// Output the data down the serial port.
+;void Output(AccelerometerRaw raw, AccelerometerScaled scaled)
+;{
+;   // Tell us about the raw values coming from the accelerometer.
+;   Serial.print("Raw:\t");
+;   Serial.print(raw.XAxis);
+;   Serial.print("   ");   
+;   Serial.print(raw.YAxis);
+;   Serial.print("   ");   
+;   Serial.print(raw.ZAxis);
+;   
+;   // Tell us about the this data, but scale it into useful units (G).
+;   Serial.print("   \tScaled:\t");
+;   Serial.print(scaled.XAxis);
+;   Serial.print("G   ");   
+;   Serial.print(scaled.YAxis);
+;   Serial.print("G   ");   
+;   Serial.print(scaled.ZAxis);
+;   Serial.println("G");
+;}
+;

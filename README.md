@@ -2,6 +2,8 @@ I2C ADXL345 accelerometer blink.
 ================================
 
 EDIT: Abandoned, servo interupt method breaks deterministic i2c loops.
+Also most compilation is automated in the src/cmp.sh file instead of a Makefile
+Michael 20170729
 
 This is just a test rig to check I can actually read ADXL registers before doing more indepth code.
 
